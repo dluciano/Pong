@@ -1,39 +1,12 @@
-var space = new cp.Space();
+var KB_UP = 38;
+var KB_DOWN = 40;
+var currentPlayer = null;
 
-var Player = cc.PhysicsSprite.extend({
-    ctor:function(){
-        this._super(res.bar_blue_png);        
-        this.body = new cp.Body(1, cp.momentForBox(1, this.width, this.height));
-        this.body.setPos(cp.v(this.x, this.y));
-        space.addBody(this.body);
-        var shape = new cp.BoxShape(this.body, this.width, this.height);
-        shape.setElasticity(0.5);
-        shape.setFriction(0.5);
-        space.addShape(shape);
-        this.setBody(this.body);
-        
+var Table = cc.Sprite.extend({
+    ctor: function(){
+        this._super(res.table_png);
         return true;
-    },
-    body: null
-});
-
-var Ball = cc.PhysicsSprite.extend({
-    ctor:function(){
-        this._super(res.pong_png);
-        this.attr({
-            scale: 0.1
-        });
-        this.body = new cp.Body(1, cp.momentForBox(1, this.width, this.height));
-        this.body.setPos(cp.v(this.x, this.y));
-        space.addBody(this.body);
-        var shape = new cp.BoxShape(this.body, this.width, this.height);
-        shape.setElasticity(0.5);
-        shape.setFriction(0.5);
-        space.addShape(shape);
-        this.setBody(this.body);
-        return true;
-    },
-    body: null
+    }
 });
 
 var PointsLabel = cc.LabelTTF.extend({
@@ -49,16 +22,19 @@ var HelloWorldLayer = cc.Layer.extend({
     pelota:null,    
     puntuacion1:null,
     puntuacion2:null,
-    _debugNode:null,
+    currentPlayer: null,
     inicializar:function(){
-        var size = cc.winSize;
+        var size = cc.winSize;        
+        var self = this;
         var color = cc.color(100,100,100);
-        space.gravity = cp.v(-100, 0);
         
-        var lineaDivisoria =  new cc.DrawNode();
-        lineaDivisoria.drawSegment(cc.p(size.width/2,0),cc.p(size.width/2,size.height),3,color);
-        this.addChild(lineaDivisoria,0);
-        
+        var table = new Table();
+        table.attr({
+            x: size.width/2,
+            y: size.height/2,
+        });
+        this.addChild(table, 0);
+                
         this.puntuacion1 = new PointsLabel();
         this.puntuacion1.setPosition(size.width * 0.4, size.height - (size.height * 0.10));
         this.addChild(this.puntuacion1,0);
@@ -67,28 +43,64 @@ var HelloWorldLayer = cc.Layer.extend({
         this.puntuacion2.setPosition(size.width - (size.width * 0.4), size.height - (size.height * 0.10));
         this.addChild(this.puntuacion2,0);
         
-        this.jugador1 = new Player();
+        this.jugador1 = new Player("AI", table);
         this.jugador1.attr({
             x: size.width * 0.1,
             y: size.height / 2
         });
         this.addChild(this.jugador1, 1);
-
-        this.jugador2 = new Player();
+        
+        this.jugador2 = new Player("Gamer", table);
         this.jugador2.attr({
             x: size.width -(size.width * 0.1),
             y: size.height / 2
         });
         this.addChild(this.jugador2, 1);
-
-        this.pelota =  new Ball();
-        this.pelota.attr({
-            x: size.width / 2,
-            y: size.height / 2
-        });
+        this.currentPlayer = this.jugador2;
+        currentPlayer = this.currentPlayer;
+        
+        this.pelota =  new Ball(table);
+        this.pelota.onGoal = function(){
+            self.jugador1.stopAllActions()
+            self.jugador2.stopAllActions()
+            self.jugador1.attr({
+                x: size.width * 0.1,
+                y: size.height / 2
+            });
+            self.jugador2.attr({
+                x: size.width -(size.width * 0.1),
+                y: size.height / 2
+            });
+            this.reset();
+            currentPlayer = self.currentPlayer = self.jugador2;
+        };
+        this.pelota.nextPlayer = function(){
+            console.log(self.currentPlayer);
+            if(self.currentPlayer.name === "AI")
+                currentPlayer = self.currentPlayer = self.jugador2;
+            else
+                currentPlayer = self.currentPlayer = self.jugador1;
+        }
         this.addChild(this.pelota, 1);
+        
+        //add a keyboard event listener to statusLabel
+        cc.eventManager.addListener({
+            event: cc.EventListener.KEYBOARD,
+            onKeyPressed:  function(keyCode, event){
+                if(!self.currentPlayer) return;
                 
-        this.setupDebugNode();
+                if(keyCode === KB_UP){
+                    self.currentPlayer.movement = UP;
+                }
+                else if(keyCode === KB_DOWN){
+                    self.currentPlayer.movement = DOWN;
+                }
+            },
+            onKeyReleased: function(keyCode, event){
+                if(!self.currentPlayer) return;
+                self.currentPlayer.movement = STOP;
+            }
+        }, this);    
     },
     ctor:function () {
         this._super();
@@ -97,12 +109,7 @@ var HelloWorldLayer = cc.Layer.extend({
         return true;
     },
     update: function(dt) {        
-        space.step(dt);
-    },
-    setupDebugNode : function() {
-        this._debugNode = new cc.PhysicsDebugNode(space);
-        this._debugNode.visible = false ;
-        this.addChild( this._debugNode );
+        
     },
 });
 
